@@ -1,0 +1,95 @@
+/*
+ * UART.c
+ *
+ *  Created on: Dec 31, 2019
+ *      Author: Matthew Zhong
+ *  Supervisor: Leyla Nazhand-Ali
+ */
+
+#include <HAL/Timer.h>
+#include <HAL/UART.h>
+
+/**
+ * Initializes the UART module except for the baudrate generation
+ * Except for baudrate generation, all other uart configuration should match
+ * that of basic_example_UART
+ *
+ * @param moduleInstance:   The eUSCI module used to construct this UART
+ * @param port:             The port the UART is connected to
+ * @param pins:             The Rx and Tx pins UART is connected to
+ *
+ * @return the completed UART object
+ */
+UART UART_construct(uint32_t moduleInstance, uint32_t port, uint32_t pins) {
+  // Create the UART struct
+  UART uart;
+
+  // Initialize auxiliary members of the struct
+  // -------------------------------------------------------------------------
+  uart.moduleInstance = moduleInstance;
+  uart.port = port;
+  uart.pins = pins;
+
+  GPIO_setAsPeripheralModuleFunctionInputPin(uart.port, uart.pins,
+                                             GPIO_PRIMARY_MODULE_FUNCTION);
+
+  uart.config.selectClockSource = EUSCI_A_UART_CLOCKSOURCE_SMCLK;
+  uart.config.overSampling =
+      EUSCI_A_UART_OVERSAMPLING_BAUDRATE_GENERATION;         // Oversampling
+  uart.config.parity = EUSCI_A_UART_EVEN_PARITY;               // Even Parity
+  uart.config.msborLsbFirst = EUSCI_A_UART_LSB_FIRST;        // LSB First
+  uart.config.numberofStopBits = EUSCI_A_UART_TWO_STOP_BITS;  // Two stop bits
+  uart.config.dataLength = EUSCI_A_UART_8_BIT_LEN;  // Data length is 8 bits
+  uart.config.uartMode = EUSCI_A_UART_MODE;
+
+  // Return the completed UART instance
+  return uart;
+}
+
+/**
+ * (Re)initializes and (re)enable the UART module to use a desired baudrate.
+ *
+ * @param uart_p        The pointer to the uart struct that needs a baudrate and
+ * should be enabled
+ * @param baudChoice:   The new baud choice with which to update the module
+ */
+void UART_SetBaud_Enable(UART* uart_p, UART_Baudrate baudChoice) {
+  // We use the system clock for baudrate generation.
+  // The processor clock runs at 48MHz in the project. In other words, system
+  // clock is 48MHz.
+  uart_p->config.selectClockSource = EUSCI_A_UART_CLOCKSOURCE_SMCLK;
+
+  // Fortunately for us, for all the baudrates we are working with with f =
+  // 48MHz, we use oversampling mode N>16
+  uart_p->config.overSampling = EUSCI_A_UART_OVERSAMPLING_BAUDRATE_GENERATION;
+
+  // When using the baudChoice to index the array, we are effectively saying
+  // that different baudrate choices correspond with different numbers
+  // without requiring excessive amounts of if-statements.
+  uint32_t clockPrescalerMapping[NUM_BAUD_CHOICES] = {0};
+  uint32_t firstModRegMapping[NUM_BAUD_CHOICES] = {0};
+  uint32_t secondModRegMapping[NUM_BAUD_CHOICES] = {0};
+
+  uart_p->config.clockPrescalar = clockPrescalerMapping[baudChoice];
+  uart_p->config.firstModReg = firstModRegMapping[baudChoice];
+  uart_p->config.secondModReg = secondModRegMapping[baudChoice];
+
+  UART_initModule(uart_p->moduleInstance, &uart_p->config);
+  UART_enableModule(uart_p->moduleInstance);
+}
+
+bool UART_hasChar(UART* uart_p) {
+    return false;
+}
+
+char UART_receiveChar(UART* uart_p) {
+    return ' ';
+}
+
+bool UART_canSend(UART* uart_p) {
+    return false;
+}
+
+void UART_sendChar(UART* uart_p, char c) {
+    return;
+}
